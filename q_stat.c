@@ -73,6 +73,7 @@ void update_qvalue_cache(double qvalue)
 	struct TListHead *e;
 	struct qentry *p, *p1;
 	int found = 0;
+	int inserted = 0;
 
 	foreach (e, &cache)
 	{
@@ -104,9 +105,13 @@ void update_qvalue_cache(double qvalue)
 				if (p1->qvalue > p->qvalue)
 				{
 					ListAdd(&p->entry, ListPrev(e));
+					inserted = 1;
 					break;
 				}
 			}
+
+			if (inserted == 0)
+				ListAddTail(&p->entry, &cache);
 		}
 	}
 }
@@ -272,10 +277,14 @@ int main(int argc, char *argv[])
 	{
 		if (packet.stream_index == video_stream)
 		{
-			avcodec_decode_video2(codecctx, frame, &frame_finish, &packet);
+			rc = avcodec_decode_video2(codecctx, frame, &frame_finish, &packet);
+			while (!frame_finish)
+			{
+				printf("%d: again\n", total_frame);
+				avcodec_decode_video2(codecctx, frame, &frame_finish, &packet);
+			}
 
-			if (frame_finish)
-				update_stat(codecctx, frame);
+			update_stat(codecctx, frame);
 		}
 
 		av_free_packet(&packet);
