@@ -26,6 +26,10 @@
 #include <libavutil/error.h>
 #include "list_head.h"
 
+#if LIBAVCODEC_VERSION_MAJOR >= 55
+#error "This program may not run for newer FFMPEG library."
+#endif
+
 int total_frame = 0;
 int total_i_frame = 0;
 int total_b_frame = 0;
@@ -128,6 +132,7 @@ void destroy_qvalue_cache()
 	}
 }
 
+#if LIBAVCODEC_VERSION_MAJOR < 54
 void update_stat(AVCodecContext *ctx, AVFrame *frame)
 {
 	double qvalue;
@@ -152,6 +157,32 @@ void update_stat(AVCodecContext *ctx, AVFrame *frame)
 	qvalue = calc_qvalue(ctx, frame);
 	update_qvalue_cache(qvalue);
 }
+#else
+void update_stat(AVCodecContext *ctx, AVFrame *frame)
+{
+	double qvalue;
+
+	total_frame++;
+	switch (frame->pict_type)
+	{
+		case AV_PICTURE_TYPE_B:
+			total_b_frame++;
+			break;
+		case AV_PICTURE_TYPE_P:
+			total_p_frame++;
+			break;
+		case AV_PICTURE_TYPE_I:
+			total_i_frame++;
+			break;
+		default:
+			total_unknown++;
+			break;
+	}
+
+	qvalue = calc_qvalue(ctx, frame);
+	update_qvalue_cache(qvalue);
+}
+#endif
 
 void dump_qvalue()
 {
@@ -280,7 +311,7 @@ int main(int argc, char *argv[])
 			rc = avcodec_decode_video2(codecctx, frame, &frame_finish, &packet);
 			while (!frame_finish)
 			{
-				printf("%d: again\n", total_frame);
+				//printf("%d: again\n", total_frame);
 				avcodec_decode_video2(codecctx, frame, &frame_finish, &packet);
 			}
 
